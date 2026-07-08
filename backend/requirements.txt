@@ -1,3 +1,9 @@
-cd backend
-venv\Scripts\activate
-pip freeze > requirements.txt
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+python-dotenv
+google-genai
+chromadb
+pypdf
+python-multipart
