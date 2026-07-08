@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -44,7 +46,7 @@ export default function Home() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/history");
+      const res = await fetch("${API_URL}");
       const data = await res.json();
       setHistory(data);
     } catch (error) {
@@ -61,7 +63,7 @@ export default function Home() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch("http://127.0.0.1:8000/analyze", {
+      const res = await fetch("${API_URL}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
@@ -83,7 +85,7 @@ export default function Home() {
     const formData = new FormData();
     formData.append("file", selectedFile);
     try {
-      const res = await fetch("http://127.0.0.1:8000/upload-document", {
+      const res = await fetch("${API_URL}", {
         method: "POST",
         body: formData,
       });
@@ -102,7 +104,7 @@ export default function Home() {
     setAskingDoc(true);
     setDocAnswer("");
     try {
-      const res = await fetch("http://127.0.0.1:8000/ask-document", {
+      const res = await fetch("${API_URL}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +127,7 @@ export default function Home() {
     setLoadingSentiment(true);
     setSentimentResult(null);
     try {
-      const res = await fetch("http://127.0.0.1:8000/sentiment", {
+      const res = await fetch("${API_URL}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: sentimentQuery }),
@@ -154,7 +156,7 @@ export default function Home() {
     setLoadingCompare(true);
     setCompareResults([]);
     try {
-      const res = await fetch("http://127.0.0.1:8000/compare", {
+      const res = await fetch("${API_URL}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tickers }),
