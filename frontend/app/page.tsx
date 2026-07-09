@@ -46,7 +46,7 @@ export default function Home() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("${API_URL}");
+      const res = await fetch(`${API_URL}`);
       const data = await res.json();
       setHistory(data);
     } catch (error) {
@@ -63,7 +63,7 @@ export default function Home() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch("${API_URL}", {
+      const res = await fetch(`${API_URL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),
@@ -85,7 +85,7 @@ export default function Home() {
     const formData = new FormData();
     formData.append("file", selectedFile);
     try {
-      const res = await fetch("${API_URL}", {
+      const res = await fetch(`${API_URL}`, {
         method: "POST",
         body: formData,
       });
@@ -104,7 +104,7 @@ export default function Home() {
     setAskingDoc(true);
     setDocAnswer("");
     try {
-      const res = await fetch("${API_URL}", {
+      const res = await fetch(`${API_URL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,7 +127,7 @@ export default function Home() {
     setLoadingSentiment(true);
     setSentimentResult(null);
     try {
-      const res = await fetch("${API_URL}", {
+      const res = await fetch(`${API_URL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: sentimentQuery }),
@@ -156,7 +156,7 @@ export default function Home() {
     setLoadingCompare(true);
     setCompareResults([]);
     try {
-      const res = await fetch("${API_URL}", {
+      const res = await fetch(`${API_URL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tickers }),
