@@ -19,7 +19,7 @@ Format output:
 PENTING: Jangan berikan rekomendasi beli/jual. Ini hanya analisis informasional, bukan saran investasi.
 """
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-flash-latest",
         contents=prompt
     )
     return response.text
@@ -38,7 +38,7 @@ Berikan output dalam format ini:
 PENTING: Fokus pada informasi terkini dan faktual. Jangan berikan rekomendasi beli/jual.
 """
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-flash-latest",
         contents=prompt,
         config={
             "tools": [{"google_search": {}}],
