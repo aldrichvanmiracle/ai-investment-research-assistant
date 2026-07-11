@@ -195,6 +195,7 @@ export default function Home() {
           <p className="text-gray-500 mt-1">
             Riset aset berbasis AI - saham & crypto - bukan saran investasi
           </p>
+          <p className="text-xs text-red-500 mt-1">DEBUG API_URL: {API_URL}</p>
         </div>
       </div>
 
