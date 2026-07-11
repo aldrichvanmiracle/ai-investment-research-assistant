@@ -112,3 +112,12 @@ def compare_assets(request: CompareRequest):
             "analysis": analysis
         })
     return {"comparisons": results}
+
+@app.get("/debug-env")
+def debug_env():
+    key = os.getenv("GEMINI_API_KEY", "")
+    return {
+        "key_exists": bool(key),
+        "key_length": len(key),
+        "key_preview": key[:6] + "..." if key else "EMPTY"
+    }
