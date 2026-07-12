@@ -1,10 +1,16 @@
 import os
+import time
 from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Cache sederhana untuk sentiment: {ticker: (timestamp, hasil)}
+_sentiment_cache = {}
+CACHE_DURATION_SECONDS = 300  # 5 menit
+
 
 def analyze_company(query: str) -> str:
     prompt = f"""
@@ -24,7 +30,16 @@ PENTING: Jangan berikan rekomendasi beli/jual. Ini hanya analisis informasional,
     )
     return response.text
 
+
 def analyze_sentiment(ticker: str) -> dict:
+    ticker_key = ticker.strip().upper()
+
+    # Cek cache dulu - kalau ada dan belum kedaluwarsa, langsung pakai
+    if ticker_key in _sentiment_cache:
+        cached_time, cached_result = _sentiment_cache[ticker_key]
+        if time.time() - cached_time < CACHE_DURATION_SECONDS:
+            return cached_result
+
     prompt = f"""
 Kamu adalah analis sentimen pasar keuangan profesional.
 Lakukan analisis sentimen terkini untuk aset berikut: {ticker}
@@ -37,31 +52,53 @@ Berikan output dalam format ini:
 
 PENTING: Fokus pada informasi terkini dan faktual. Jangan berikan rekomendasi beli/jual.
 """
-    response = client.models.generate_content(
-        model="gemini-flash-latest",
-        contents=prompt,
-        config={
-            "tools": [{"google_search": {}}],
-        }
-    )
-    
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt,
+            config={
+                "tools": [{"google_search": {}}],
+            }
+        )
+        response_text = response.text
+    except Exception as e:
+        error_message = str(e)
+        if "RESOURCE_EXHAUSTED" in error_message or "429" in error_message:
+            return {
+                "ticker": ticker,
+                "sentiment_label": "TIDAK TERSEDIA",
+                "analysis": "Fitur sentiment sedang mencapai batas kuota API gratis untuk hari ini. Silakan coba lagi dalam beberapa saat, atau gunakan fitur Analisis Aset dan Perbandingan yang tidak terpengaruh oleh limit ini."
+            }
+        else:
+            return {
+                "ticker": ticker,
+                "sentiment_label": "ERROR",
+                "analysis": f"Terjadi kesalahan saat mengambil data sentimen: {error_message}"
+            }
+
     # Hitung skor sentimen sederhana berdasarkan kata kunci
-    text = response.text.lower()
+    text_lower = response_text.lower()
     positive_words = ["positif", "naik", "meningkat", "pertumbuhan", "bullish", "kuat", "optimis"]
     negative_words = ["negatif", "turun", "menurun", "bearish", "lemah", "pesimis", "risiko"]
-    
-    positive_count = sum(1 for word in positive_words if word in text)
-    negative_count = sum(1 for word in negative_words if word in text)
-    
+
+    positive_count = sum(1 for word in positive_words if word in text_lower)
+    negative_count = sum(1 for word in negative_words if word in text_lower)
+
     if positive_count > negative_count:
         sentiment_label = "POSITIF"
     elif negative_count > positive_count:
         sentiment_label = "NEGATIF"
     else:
         sentiment_label = "NETRAL"
-    
-    return {
+
+    result = {
         "ticker": ticker,
         "sentiment_label": sentiment_label,
-        "analysis": response.text
+        "analysis": response_text
     }
+
+    # Simpan ke cache supaya request berikutnya untuk ticker sama tidak panggil API lagi
+    _sentiment_cache[ticker_key] = (time.time(), result)
+
+    return result
