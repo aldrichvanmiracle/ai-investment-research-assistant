@@ -23,6 +23,14 @@ interface ComparisonResult {
   analysis: string;
 }
 
+interface ThesisResult {
+  id: number;
+  ticker: string;
+  reasons: string;
+  analysis: string;
+  created_at: string;
+}
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,6 +52,11 @@ export default function Home() {
   const [loadingCompare, setLoadingCompare] = useState(false);
   const [activeTab, setActiveTab] = useState("analisis");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [thesisTicker, setThesisTicker] = useState("");
+  const [thesisReasons, setThesisReasons] = useState("");
+  const [thesisResult, setThesisResult] = useState<ThesisResult | null>(null);
+  const [loadingThesis, setLoadingThesis] = useState(false);
+  const [thesisHistory, setThesisHistory] = useState<ThesisResult[]>([]);
 
   // Wealth Dashboard state
   const [wealthData, setWealthData] = useState({
@@ -262,6 +275,7 @@ export default function Home() {
     { id: "sentiment", label: "News & Sentiment" },
     { id: "compare", label: "Perbandingan" },
     { id: "dokumen", label: "Tanya Dokumen" },
+    { id: "thesis", label: "Investment Thesis" },
     { id: "wealth", label: "Wealth Dashboard" },
     { id: "riwayat", label: "Riwayat" },
   ];
@@ -303,6 +317,40 @@ export default function Home() {
     { key: "crypto", label: "Crypto (Rp)" },
     { key: "debt", label: "Hutang (Rp)" },
   ];
+
+  const fetchThesisHistory = async () => {
+    try {
+      const res = await fetch(`${API_URL}/thesis`);
+      const data = await res.json();
+      setThesisHistory(data);
+    } catch (error) {
+      console.error("Error fetching thesis history:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchThesisHistory();
+  }, []);
+
+  const handleGenerateThesis = async () => {
+    if (!thesisTicker.trim() || !thesisReasons.trim()) return;
+    setLoadingThesis(true);
+    setThesisResult(null);
+    try {
+      const res = await fetch(`${API_URL}/thesis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: thesisTicker, reasons: thesisReasons }),
+      });
+      const data = await res.json();
+      setThesisResult(data);
+      fetchThesisHistory();
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoadingThesis(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -555,6 +603,74 @@ export default function Home() {
                 <ReactMarkdown>{docAnswer}</ReactMarkdown>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab: Investment Thesis */}
+        {activeTab === "thesis" && (
+          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-semibold mb-1">
+              Investment Thesis
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Susun alasan investasimu jadi kerangka Bull Case, Bear Case, dan
+              metrik yang perlu dipantau.
+            </p>
+            <div className="space-y-3 mb-4">
+              <input
+                type="text"
+                value={thesisTicker}
+                onChange={(e) => setThesisTicker(e.target.value)}
+                placeholder="Ticker/Aset, contoh: BBCA"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <textarea
+                value={thesisReasons}
+                onChange={(e) => setThesisReasons(e.target.value)}
+                placeholder="Kenapa kamu tertarik pada aset ini? Contoh: CASA tinggi, ROE tinggi, manajemen bagus..."
+                rows={4}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleGenerateThesis}
+                disabled={loadingThesis}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {loadingThesis ? "Menyusun Thesis..." : "Generate Thesis"}
+              </button>
+            </div>
+
+            {thesisResult && (
+              <div className="bg-gray-50 rounded-lg p-4 md:p-6 mb-6">
+                <h3 className="text-lg font-semibold mb-4 uppercase">
+                  {thesisResult.ticker}
+                </h3>
+                <div className="prose prose-sm max-w-none text-gray-700">
+                  <ReactMarkdown>{thesisResult.analysis}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+
+            <h3 className="text-md font-semibold mb-3 mt-6">Riwayat Thesis</h3>
+            {thesisHistory.length === 0 && (
+              <p className="text-sm text-gray-400">
+                Belum ada thesis yang dibuat.
+              </p>
+            )}
+            <div className="space-y-3">
+              {thesisHistory.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => setThesisResult(item)}
+                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition"
+                >
+                  <p className="font-medium uppercase">{item.ticker}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(item.created_at).toLocaleString("id-ID")}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

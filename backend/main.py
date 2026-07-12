@@ -10,6 +10,7 @@ from fastapi import UploadFile, File
 import shutil
 import os
 from rag_service import process_and_store_document, query_document
+from ai_service import analyze_company, analyze_sentiment, generate_thesis
 
 Base.metadata.create_all(bind=engine)
 
@@ -27,6 +28,9 @@ class AnalyzeRequest(BaseModel):
     query: str
 class CompareRequest(BaseModel):
     tickers: list[str]
+class ThesisRequest(BaseModel):
+    ticker: str
+    reasons: str
 
 @app.get("/")
 def read_root():
@@ -121,3 +125,31 @@ def debug_env():
         "key_length": len(key),
         "key_preview": key[:6] + "..." if key else "EMPTY"
     }
+
+@app.post("/thesis")
+def create_thesis(request: ThesisRequest, db: Session = Depends(get_db)):
+    analysis_text = generate_thesis(request.ticker, request.reasons)
+
+    new_thesis = models.InvestmentThesis(
+        ticker=request.ticker,
+        reasons=request.reasons,
+        analysis=analysis_text,
+        created_at=datetime.utcnow()
+    )
+    db.add(new_thesis)
+    db.commit()
+    db.refresh(new_thesis)
+
+    return {
+        "id": new_thesis.id,
+        "ticker": new_thesis.ticker,
+        "reasons": new_thesis.reasons,
+        "analysis": new_thesis.analysis,
+        "created_at": new_thesis.created_at
+    }
+
+
+@app.get("/thesis")
+def get_theses(db: Session = Depends(get_db)):
+    results = db.query(models.InvestmentThesis).order_by(models.InvestmentThesis.created_at.desc()).all()
+    return results

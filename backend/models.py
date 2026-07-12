@@ -19,3 +19,12 @@ class AnalysisResult(Base):
     query = Column(String, index=True)
     analysis = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class InvestmentThesis(Base):
+    __tablename__ = "investment_theses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String, index=True)
+    reasons = Column(String)
+    analysis = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

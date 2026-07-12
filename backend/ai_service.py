@@ -102,3 +102,25 @@ PENTING: Fokus pada informasi terkini dan faktual. Jangan berikan rekomendasi be
     _sentiment_cache[ticker_key] = (time.time(), result)
 
     return result
+
+def generate_thesis(ticker: str, reasons: str) -> str:
+    prompt = f"""
+    Kamu adalah portfolio manager berpengalaman yang membantu investor menyusun investment thesis yang terstruktur dan jernih.
+    Ticker/Aset: {ticker}
+    Alasan investor tertarik pada aset ini:
+    {reasons}
+    Susun investment thesis dengan format berikut:
+    ## Bull Case
+    # (3-4 poin faktor yang mendukung tesis ini benar - kaitkan dengan alasan yang diberikan investor)
+    # ## Bear Case
+    # (3-4 poin risiko atau faktor yang bisa membuat tesis ini salah)
+    # ## Key Metrics to Monitor
+    # (3-5 metrik spesifik yang harus dipantau untuk memvalidasi atau membatalkan tesis ini seiring waktu)
+    # ## Kesimpulan
+    # (Ringkasan singkat dan netral. JANGAN memberikan rekomendasi beli/jual - tujuannya membantu investor berpikir jernih dan terdokumentasi, bukan menggantikan keputusan mereka)
+    """
+    response = client.models.generate_content(
+        model="gemini-flash-latest",
+        contents=prompt
+    )
+    return response.text
