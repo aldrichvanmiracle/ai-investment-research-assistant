@@ -4,6 +4,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import {
+  Home as HomeIcon,
+  BarChart3,
+  Newspaper,
+  Scale,
+  FileText,
+  Lightbulb,
+  Wallet,
+  History as HistoryIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 interface AnalysisResult {
   id: number;
@@ -62,8 +73,6 @@ function relativeTime(dateStr: string) {
   return date.toLocaleDateString("id-ID");
 }
 
-// Heuristik ringan untuk nebak 1 baris deskripsi dari teks analisis.
-// Bukan data pasti dari backend - cuma untuk kesan visual, boleh meleset.
 function extractSubtitle(analysis: string): string | null {
   const cleaned = analysis.replace(/[#*_`]/g, "");
   const lines = cleaned
@@ -123,6 +132,19 @@ const Card = ({ children }: { children: React.ReactNode }) => (
   <div className="bg-white rounded-xl shadow p-4 md:p-6">{children}</div>
 );
 
+const SectionTitle = ({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) => (
+  <h2 className="text-lg md:text-xl font-semibold mb-1 flex items-center gap-2">
+    <Icon size={20} className="text-blue-600" />
+    {children}
+  </h2>
+);
+
 const ExampleChip = ({
   label,
   onClick,
@@ -139,18 +161,18 @@ const ExampleChip = ({
 );
 
 const EmptyState = ({
-  icon,
+  icon: Icon,
   title,
   hint,
   children,
 }: {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   hint: string;
   children?: React.ReactNode;
 }) => (
   <div className="text-center py-10 px-4">
-    <div className="text-4xl mb-3">{icon}</div>
+    <Icon size={36} className="mx-auto text-gray-300 mb-3" />
     <h3 className="text-base font-semibold text-gray-700 mb-2">{title}</h3>
     {children}
     <p className="text-sm text-gray-400 mt-4">{hint}</p>
@@ -237,14 +259,7 @@ export default function Home() {
     const totalAssets = cash + stocks + bonds + property + gold + crypto;
     const netWorth = totalAssets - debt;
 
-    const rawAllocation = {
-      cash,
-      stocks,
-      bonds,
-      property,
-      gold,
-      crypto,
-    };
+    const rawAllocation = { cash, stocks, bonds, property, gold, crypto };
 
     const allocation =
       totalAssets > 0
@@ -256,14 +271,7 @@ export default function Home() {
             gold: (gold / totalAssets) * 100,
             crypto: (crypto / totalAssets) * 100,
           }
-        : {
-            cash: 0,
-            stocks: 0,
-            bonds: 0,
-            property: 0,
-            gold: 0,
-            crypto: 0,
-          };
+        : { cash: 0, stocks: 0, bonds: 0, property: 0, gold: 0, crypto: 0 };
 
     const maxAllocation = Math.max(
       allocation.cash,
@@ -505,62 +513,75 @@ export default function Home() {
     { key: "debt", label: "Hutang (Rp)" },
   ];
 
-  const researchTools = [
+  const researchTools: {
+    id: string;
+    icon: LucideIcon;
+    title: string;
+    desc: string;
+  }[] = [
     {
       id: "analisis",
-      icon: "📊",
+      icon: BarChart3,
       title: "Company Analysis",
       desc: "Analisis mendalam saham & crypto",
     },
     {
       id: "sentiment",
-      icon: "📰",
+      icon: Newspaper,
       title: "News & Sentiment",
       desc: "Sentimen pasar dan berita terkini",
     },
     {
       id: "compare",
-      icon: "⚖️",
+      icon: Scale,
       title: "Compare Assets",
       desc: "Bandingkan beberapa investasi",
     },
     {
       id: "dokumen",
-      icon: "📄",
+      icon: FileText,
       title: "Financial Document Q&A",
       desc: "Tanya jawab dari laporan keuangan",
     },
   ];
 
-  const portfolioTools = [
+  const portfolioTools: {
+    id: string;
+    icon: LucideIcon;
+    title: string;
+    desc: string;
+  }[] = [
     {
       id: "thesis",
-      icon: "💡",
+      icon: Lightbulb,
       title: "Investment Thesis",
       desc: "Susun bull case & bear case",
     },
     {
       id: "wealth",
-      icon: "💰",
+      icon: Wallet,
       title: "Wealth Dashboard",
       desc: "Lacak alokasi dan net worth",
     },
     {
       id: "riwayat",
-      icon: "📚",
+      icon: HistoryIcon,
       title: "History",
       desc: "Riset yang pernah kamu lakukan",
     },
   ];
 
+  const allTools = [...researchTools, ...portfolioTools];
+  const totalToolsCount = allTools.length;
+
   const researchTabIds = ["analisis", "sentiment", "compare", "dokumen"];
 
-  const bottomNavItems = [
-    { id: "home", icon: "🏠", label: "Home" },
-    { id: "analisis", icon: "📊", label: "Research" },
-    { id: "thesis", icon: "💡", label: "Thesis" },
-    { id: "wealth", icon: "💰", label: "Wealth" },
-    { id: "riwayat", icon: "📚", label: "History" },
+  const bottomNavItems: { id: string; icon: LucideIcon; label: string }[] = [
+    { id: "home", icon: HomeIcon, label: "Home" },
+    { id: "analisis", icon: BarChart3, label: "Research" },
+    { id: "thesis", icon: Lightbulb, label: "Thesis" },
+    { id: "wealth", icon: Wallet, label: "Wealth" },
+    { id: "riwayat", icon: HistoryIcon, label: "History" },
   ];
 
   const isBottomNavActive = (id: string) => {
@@ -612,12 +633,12 @@ export default function Home() {
   );
 
   const HomeCard = ({
-    icon,
+    icon: Icon,
     title,
     desc,
     onClick,
   }: {
-    icon: string;
+    icon: LucideIcon;
     title: string;
     desc: string;
     onClick: () => void;
@@ -626,7 +647,7 @@ export default function Home() {
       onClick={onClick}
       className="text-left bg-white rounded-xl shadow p-4 md:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all border border-transparent hover:border-blue-200"
     >
-      <div className="text-2xl mb-2">{icon}</div>
+      <Icon size={24} className="text-blue-600 mb-2" strokeWidth={1.75} />
       <h3 className="font-semibold text-gray-800 text-sm md:text-base mb-1">
         {title}
       </h3>
@@ -639,10 +660,7 @@ export default function Home() {
       {/* Header */}
       <div className="bg-white shadow-sm px-4 sm:px-6 md:px-8 py-4 md:py-6 mb-4 md:mb-6">
         <div className="max-w-4xl mx-auto">
-          <button
-            onClick={() => setActiveTab("home")}
-            className="text-left"
-          >
+          <button onClick={() => setActiveTab("home")} className="text-left">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
               AI Investment Research Assistant
             </h1>
@@ -654,7 +672,7 @@ export default function Home() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8">
-        {/* Desktop Grouped Tabs (hidden on Home to avoid redundancy, shown elsewhere for quick switch) */}
+        {/* Desktop Grouped Tabs (hidden on Home) */}
         {activeTab !== "home" && (
           <div className="hidden sm:flex flex-wrap gap-x-8 gap-y-3 mb-6 border-b border-gray-200 pb-1">
             <div className="flex flex-col gap-2">
@@ -666,12 +684,13 @@ export default function Home() {
                   <button
                     key={tool.id}
                     onClick={() => setActiveTab(tool.id)}
-                    className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition ${
                       activeTab === tool.id
                         ? "bg-blue-600 text-white"
                         : "text-gray-600 hover:bg-gray-100"
                     }`}
                   >
+                    <tool.icon size={14} />
                     {tool.title}
                   </button>
                 ))}
@@ -686,12 +705,13 @@ export default function Home() {
                   <button
                     key={tool.id}
                     onClick={() => setActiveTab(tool.id)}
-                    className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition ${
                       activeTab === tool.id
                         ? "bg-blue-600 text-white"
                         : "text-gray-600 hover:bg-gray-100"
                     }`}
                   >
+                    <tool.icon size={14} />
                     {tool.title}
                   </button>
                 ))}
@@ -703,6 +723,27 @@ export default function Home() {
         {/* Tab: HOME */}
         {activeTab === "home" && (
           <div className="space-y-8">
+            {/* Hero Card */}
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 md:p-10 text-center text-white">
+              <h2 className="text-xl md:text-2xl font-bold mb-2">
+                AI Investment Research Assistant
+              </h2>
+              <p className="text-sm md:text-base text-blue-100 max-w-md mx-auto mb-1">
+                Research stocks, crypto, and financial reports with AI-powered
+                analysis.
+              </p>
+              <p className="text-xs md:text-sm text-blue-200 mb-5">
+                {totalToolsCount} research & portfolio tools available
+              </p>
+              <button
+                onClick={() => setActiveTab("analisis")}
+                className="bg-white text-blue-700 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition inline-flex items-center gap-2"
+              >
+                <BarChart3 size={18} />
+                Start Research
+              </button>
+            </div>
+
             <div>
               <h2 className="text-sm font-semibold tracking-wider uppercase text-gray-400 mb-3">
                 Research Tools
@@ -741,10 +782,8 @@ export default function Home() {
         {/* Tab: Analisis Aset */}
         {activeTab === "analisis" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-4">
-              📊 Company Analysis
-            </h2>
-            <div className="flex flex-col sm:flex-row gap-2 mb-2">
+            <SectionTitle icon={BarChart3}>Company Analysis</SectionTitle>
+            <div className="flex flex-col sm:flex-row gap-2 mb-2 mt-3">
               <input
                 type="text"
                 value={query}
@@ -800,7 +839,7 @@ export default function Home() {
 
             {!loading && !result && (
               <EmptyState
-                icon="📊"
+                icon={BarChart3}
                 title="Analisis Aset Apapun"
                 hint="Ketik ticker atau nama aset di atas untuk memulai."
               />
@@ -811,9 +850,7 @@ export default function Home() {
         {/* Tab: News & Sentiment */}
         {activeTab === "sentiment" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-1">
-              📰 News & Sentiment
-            </h2>
+            <SectionTitle icon={Newspaper}>News & Sentiment</SectionTitle>
             <p className="text-sm text-gray-500 mb-4">
               AI mencari berita terkini dan menganalisis sentimen pasar secara
               real-time.
@@ -872,7 +909,7 @@ export default function Home() {
 
             {!loadingSentiment && !sentimentResult && (
               <EmptyState
-                icon="📰"
+                icon={Newspaper}
                 title="Cek Sentimen Pasar"
                 hint="Ketik ticker di atas untuk melihat sentimen dan berita terkini."
               />
@@ -883,9 +920,7 @@ export default function Home() {
         {/* Tab: Perbandingan */}
         {activeTab === "compare" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-1">
-              ⚖️ Compare Assets
-            </h2>
+            <SectionTitle icon={Scale}>Compare Assets</SectionTitle>
             <p className="text-sm text-gray-500 mb-4">
               Bandingkan beberapa aset sekaligus. Pisahkan ticker dengan koma.
             </p>
@@ -938,7 +973,7 @@ export default function Home() {
 
             {!loadingCompare && compareResults.length === 0 && (
               <EmptyState
-                icon="⚖️"
+                icon={Scale}
                 title="Bandingkan Beberapa Aset"
                 hint="Bandingkan valuasi, kualitas bisnis, dan risiko sekaligus."
               />
@@ -949,9 +984,7 @@ export default function Home() {
         {/* Tab: Tanya Dokumen */}
         {activeTab === "dokumen" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-1">
-              📄 Financial Document Q&A
-            </h2>
+            <SectionTitle icon={FileText}>Financial Document Q&A</SectionTitle>
             <p className="text-sm text-gray-500 mb-4">
               Upload laporan keuangan (PDF), lalu tanyakan apa saja - termasuk
               valuasi P/E dan PBV.
@@ -1013,7 +1046,7 @@ export default function Home() {
 
             {!askingDoc && !docAnswer && (
               <EmptyState
-                icon="📄"
+                icon={FileText}
                 title="Tanya Jawab dari Dokumen"
                 hint="Upload PDF laporan keuangan, lalu tanyakan apa saja tentang isinya."
               />
@@ -1024,9 +1057,7 @@ export default function Home() {
         {/* Tab: Investment Thesis */}
         {activeTab === "thesis" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-1">
-              💡 Investment Thesis
-            </h2>
+            <SectionTitle icon={Lightbulb}>Investment Thesis</SectionTitle>
             <p className="text-sm text-gray-500 mb-4">
               Susun alasan investasimu jadi kerangka Bull Case, Bear Case, dan
               metrik yang perlu dipantau.
@@ -1123,9 +1154,7 @@ export default function Home() {
                             🎯 Conclusion
                           </h4>
                           <div className="prose prose-sm max-w-none text-blue-900">
-                            <ReactMarkdown>
-                              {sections.conclusion}
-                            </ReactMarkdown>
+                            <ReactMarkdown>{sections.conclusion}</ReactMarkdown>
                           </div>
                         </div>
                       )}
@@ -1137,15 +1166,13 @@ export default function Home() {
 
             {!loadingThesis && !thesisResult && (
               <EmptyState
-                icon="💡"
+                icon={Lightbulb}
                 title="Build an Investment Thesis"
                 hint="Tulis ticker dan alasanmu, AI akan bantu susun bull case & bear case."
               />
             )}
 
-            <h3 className="text-md font-semibold mb-3 mt-6">
-              Riwayat Thesis
-            </h3>
+            <h3 className="text-md font-semibold mb-3 mt-6">Riwayat Thesis</h3>
             {thesisHistory.length === 0 && (
               <p className="text-sm text-gray-400">
                 Belum ada thesis yang dibuat.
@@ -1171,9 +1198,7 @@ export default function Home() {
         {/* Tab: Wealth Dashboard */}
         {activeTab === "wealth" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-1">
-              💰 Wealth Dashboard
-            </h2>
+            <SectionTitle icon={Wallet}>Wealth Dashboard</SectionTitle>
             <p className="text-sm text-gray-500 mb-6">
               Hitung total kekayaan bersih dan lihat alokasi aset kamu.
               Tersimpan otomatis di browser ini saja. Boleh dibiarkan 0.
@@ -1234,8 +1259,8 @@ export default function Home() {
                   <p className="text-sm text-yellow-800">
                     ⚠️ Konsentrasi tinggi terdeteksi:{" "}
                     <strong>{wealth.maxAllocation.toFixed(0)}%</strong> dari
-                    total aset ada di satu kategori. Pertimbangkan
-                    diversifikasi untuk mengurangi risiko.
+                    total aset ada di satu kategori. Pertimbangkan diversifikasi
+                    untuk mengurangi risiko.
                   </p>
                 </div>
               )}
@@ -1272,8 +1297,7 @@ export default function Home() {
                 </div>
               ) : (
                 <p className="text-sm text-gray-400 text-center py-4">
-                  Isi minimal satu kategori aset di atas untuk melihat
-                  alokasi.
+                  Isi minimal satu kategori aset di atas untuk melihat alokasi.
                 </p>
               )}
             </div>
@@ -1283,46 +1307,48 @@ export default function Home() {
         {/* Tab: Riwayat (gabungan analysis + thesis) */}
         {activeTab === "riwayat" && (
           <Card>
-            <h2 className="text-lg md:text-xl font-semibold mb-4">
-              📚 History
-            </h2>
-            {combinedHistory.length === 0 && (
-              <p className="text-sm text-gray-400">
-                Belum ada riwayat. Mulai dari Company Analysis atau Investment
-                Thesis.
-              </p>
-            )}
-            <div className="space-y-3">
-              {combinedHistory.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    if (item.type === "analysis") {
-                      setResult(item.raw as AnalysisResult);
-                      setActiveTab("analisis");
-                    } else {
-                      setThesisResult(item.raw as ThesisResult);
-                      setActiveTab("thesis");
-                    }
-                  }}
-                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">
-                      {item.type === "analysis" ? "📊" : "💡"}
-                    </span>
-                    <div>
-                      <p className="font-medium uppercase">{item.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {item.type === "analysis"
-                          ? "Company Analysis"
-                          : "Investment Thesis"}{" "}
-                        · {relativeTime(item.created_at)}
-                      </p>
+            <SectionTitle icon={HistoryIcon}>History</SectionTitle>
+            <div className="mt-3">
+              {combinedHistory.length === 0 && (
+                <p className="text-sm text-gray-400">
+                  Belum ada riwayat. Mulai dari Company Analysis atau Investment
+                  Thesis.
+                </p>
+              )}
+              <div className="space-y-3">
+                {combinedHistory.map((item) => {
+                  const ItemIcon =
+                    item.type === "analysis" ? BarChart3 : Lightbulb;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        if (item.type === "analysis") {
+                          setResult(item.raw as AnalysisResult);
+                          setActiveTab("analisis");
+                        } else {
+                          setThesisResult(item.raw as ThesisResult);
+                          setActiveTab("thesis");
+                        }
+                      }}
+                      className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <ItemIcon size={20} className="text-blue-600" />
+                        <div>
+                          <p className="font-medium uppercase">{item.title}</p>
+                          <p className="text-xs text-gray-500">
+                            {item.type === "analysis"
+                              ? "Company Analysis"
+                              : "Investment Thesis"}{" "}
+                            · {relativeTime(item.created_at)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
           </Card>
         )}
@@ -1340,7 +1366,7 @@ export default function Home() {
               isBottomNavActive(item.id) ? "text-blue-600" : "text-gray-400"
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
+            <item.icon size={20} />
             <span className="text-[10px] font-medium">{item.label}</span>
           </button>
         ))}
