@@ -31,6 +31,145 @@ interface ThesisResult {
   created_at: string;
 }
 
+// ---------- Helpers ----------
+
+function useRotatingMessages(active: boolean, messages: string[]) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setIdx(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setIdx((i) => (i + 1) % messages.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [active, messages.length]);
+  return messages[idx];
+}
+
+function relativeTime(dateStr: string) {
+  const date = new Date(dateStr);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Baru saja";
+  if (diffMin < 60) return `${diffMin} menit lalu`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} jam lalu`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay === 1) return "Kemarin";
+  if (diffDay < 7) return `${diffDay} hari lalu`;
+  return date.toLocaleDateString("id-ID");
+}
+
+// Heuristik ringan untuk nebak 1 baris deskripsi dari teks analisis.
+// Bukan data pasti dari backend - cuma untuk kesan visual, boleh meleset.
+function extractSubtitle(analysis: string): string | null {
+  const cleaned = analysis.replace(/[#*_`]/g, "");
+  const lines = cleaned
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    if (
+      line.length > 15 &&
+      line.length < 100 &&
+      !/^\d/.test(line) &&
+      !line.endsWith(":")
+    ) {
+      return line;
+    }
+  }
+  return null;
+}
+
+interface ThesisSections {
+  bull?: string;
+  bear?: string;
+  watch?: string;
+  conclusion?: string;
+}
+
+function parseThesis(text: string): ThesisSections | null {
+  const markers: { key: keyof ThesisSections; regex: RegExp }[] = [
+    { key: "bull", regex: /##\s*bull case/i },
+    { key: "bear", regex: /##\s*bear case/i },
+    { key: "watch", regex: /##\s*key metrics[^\n]*/i },
+    { key: "conclusion", regex: /##\s*kesimpulan/i },
+  ];
+  const found: { key: keyof ThesisSections; index: number }[] = [];
+  for (const m of markers) {
+    const match = text.match(m.regex);
+    if (match && match.index !== undefined) {
+      found.push({ key: m.key, index: match.index });
+    }
+  }
+  if (found.length === 0) return null;
+  found.sort((a, b) => a.index - b.index);
+  const sections: ThesisSections = {};
+  for (let i = 0; i < found.length; i++) {
+    const start = found[i].index;
+    const end = i + 1 < found.length ? found[i + 1].index : text.length;
+    let chunk = text.substring(start, end);
+    chunk = chunk.replace(/##[^\n]*\n/, "").trim();
+    sections[found[i].key] = chunk;
+  }
+  return sections;
+}
+
+// ---------- Small UI building blocks ----------
+
+const Card = ({ children }: { children: React.ReactNode }) => (
+  <div className="bg-white rounded-xl shadow p-4 md:p-6">{children}</div>
+);
+
+const ExampleChip = ({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className="px-3 py-1.5 rounded-full border border-gray-200 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition"
+  >
+    {label}
+  </button>
+);
+
+const EmptyState = ({
+  icon,
+  title,
+  hint,
+  children,
+}: {
+  icon: string;
+  title: string;
+  hint: string;
+  children?: React.ReactNode;
+}) => (
+  <div className="text-center py-10 px-4">
+    <div className="text-4xl mb-3">{icon}</div>
+    <h3 className="text-base font-semibold text-gray-700 mb-2">{title}</h3>
+    {children}
+    <p className="text-sm text-gray-400 mt-4">{hint}</p>
+  </div>
+);
+
+const RotatingLoader = ({ message }: { message: string }) => (
+  <div className="py-10 text-center">
+    <div className="inline-flex items-center gap-2 text-gray-500 text-sm mb-4">
+      <span className="animate-pulse">{message}</span>
+    </div>
+    <div className="space-y-2 max-w-md mx-auto animate-pulse">
+      <div className="h-3 bg-gray-200 rounded w-full" />
+      <div className="h-3 bg-gray-200 rounded w-5/6 mx-auto" />
+      <div className="h-3 bg-gray-200 rounded w-4/6 mx-auto" />
+    </div>
+  </div>
+);
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,8 +189,8 @@ export default function Home() {
   const [compareInput, setCompareInput] = useState("");
   const [compareResults, setCompareResults] = useState<ComparisonResult[]>([]);
   const [loadingCompare, setLoadingCompare] = useState(false);
-  const [activeTab, setActiveTab] = useState("analisis");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("home");
+
   const [thesisTicker, setThesisTicker] = useState("");
   const [thesisReasons, setThesisReasons] = useState("");
   const [thesisResult, setThesisResult] = useState<ThesisResult | null>(null);
@@ -98,6 +237,15 @@ export default function Home() {
     const totalAssets = cash + stocks + bonds + property + gold + crypto;
     const netWorth = totalAssets - debt;
 
+    const rawAllocation = {
+      cash,
+      stocks,
+      bonds,
+      property,
+      gold,
+      crypto,
+    };
+
     const allocation =
       totalAssets > 0
         ? {
@@ -125,14 +273,26 @@ export default function Home() {
       allocation.gold,
       allocation.crypto,
     );
+
+    let largestLabel = "-";
+    let largestValue = 0;
+    Object.entries(rawAllocation).forEach(([key, val]) => {
+      if (val > largestValue) {
+        largestValue = val;
+        largestLabel = key;
+      }
+    });
+
     const concentrationWarning = maxAllocation > 70;
 
     return {
       totalAssets,
       netWorth,
+      debt,
       allocation,
       concentrationWarning,
       maxAllocation,
+      largestLabel,
     };
   };
 
@@ -154,19 +314,31 @@ export default function Home() {
     }
   };
 
+  const fetchThesisHistory = async () => {
+    try {
+      const res = await fetch(`${API_URL}/thesis`);
+      const data = await res.json();
+      setThesisHistory(data);
+    } catch (error) {
+      console.error("Error fetching thesis history:", error);
+    }
+  };
+
   useEffect(() => {
     fetchHistory();
+    fetchThesisHistory();
   }, []);
 
-  const handleAnalyze = async () => {
-    if (!query.trim()) return;
+  const handleAnalyze = async (overrideQuery?: string) => {
+    const q = overrideQuery ?? query;
+    if (!q.trim()) return;
     setLoading(true);
     setResult(null);
     try {
       const res = await fetch(`${API_URL}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: q }),
       });
       const data = await res.json();
       setResult(data);
@@ -222,15 +394,16 @@ export default function Home() {
     }
   };
 
-  const handleSentiment = async () => {
-    if (!sentimentQuery.trim()) return;
+  const handleSentiment = async (overrideQuery?: string) => {
+    const q = overrideQuery ?? sentimentQuery;
+    if (!q.trim()) return;
     setLoadingSentiment(true);
     setSentimentResult(null);
     try {
       const res = await fetch(`${API_URL}/sentiment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: sentimentQuery }),
+        body: JSON.stringify({ query: q }),
       });
       const data = await res.json();
       setSentimentResult(data);
@@ -241,9 +414,10 @@ export default function Home() {
     }
   };
 
-  const handleCompare = async () => {
-    if (!compareInput.trim()) return;
-    const tickers = compareInput
+  const handleCompare = async (overrideInput?: string) => {
+    const input = overrideInput ?? compareInput;
+    if (!input.trim()) return;
+    const tickers = input
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
@@ -270,23 +444,36 @@ export default function Home() {
     }
   };
 
-  const tabs = [
-    { id: "analisis", label: "Analisis Aset" },
-    { id: "sentiment", label: "News & Sentiment" },
-    { id: "compare", label: "Perbandingan" },
-    { id: "dokumen", label: "Tanya Dokumen" },
-    { id: "thesis", label: "Investment Thesis" },
-    { id: "wealth", label: "Wealth Dashboard" },
-    { id: "riwayat", label: "Riwayat" },
-  ];
+  const handleGenerateThesis = async () => {
+    if (!thesisTicker.trim() || !thesisReasons.trim()) return;
+    setLoadingThesis(true);
+    setThesisResult(null);
+    try {
+      const res = await fetch(`${API_URL}/thesis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticker: thesisTicker,
+          reasons: thesisReasons,
+        }),
+      });
+      const data = await res.json();
+      setThesisResult(data);
+      fetchThesisHistory();
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoadingThesis(false);
+    }
+  };
 
   const sentimentColor = (label: string) => {
     if (label === "POSITIF") return "bg-green-100 text-green-800";
     if (label === "NEGATIF") return "bg-red-100 text-red-800";
+    if (label === "TIDAK TERSEDIA" || label === "ERROR")
+      return "bg-gray-100 text-gray-600";
     return "bg-yellow-100 text-yellow-800";
   };
-
-  const currentTabLabel = tabs.find((t) => t.id === activeTab)?.label || "Menu";
 
   const wealth = calculateNetWorth();
 
@@ -318,110 +505,246 @@ export default function Home() {
     { key: "debt", label: "Hutang (Rp)" },
   ];
 
-  const fetchThesisHistory = async () => {
-    try {
-      const res = await fetch(`${API_URL}/thesis`);
-      const data = await res.json();
-      setThesisHistory(data);
-    } catch (error) {
-      console.error("Error fetching thesis history:", error);
-    }
+  const researchTools = [
+    {
+      id: "analisis",
+      icon: "📊",
+      title: "Company Analysis",
+      desc: "Analisis mendalam saham & crypto",
+    },
+    {
+      id: "sentiment",
+      icon: "📰",
+      title: "News & Sentiment",
+      desc: "Sentimen pasar dan berita terkini",
+    },
+    {
+      id: "compare",
+      icon: "⚖️",
+      title: "Compare Assets",
+      desc: "Bandingkan beberapa investasi",
+    },
+    {
+      id: "dokumen",
+      icon: "📄",
+      title: "Financial Document Q&A",
+      desc: "Tanya jawab dari laporan keuangan",
+    },
+  ];
+
+  const portfolioTools = [
+    {
+      id: "thesis",
+      icon: "💡",
+      title: "Investment Thesis",
+      desc: "Susun bull case & bear case",
+    },
+    {
+      id: "wealth",
+      icon: "💰",
+      title: "Wealth Dashboard",
+      desc: "Lacak alokasi dan net worth",
+    },
+    {
+      id: "riwayat",
+      icon: "📚",
+      title: "History",
+      desc: "Riset yang pernah kamu lakukan",
+    },
+  ];
+
+  const researchTabIds = ["analisis", "sentiment", "compare", "dokumen"];
+
+  const bottomNavItems = [
+    { id: "home", icon: "🏠", label: "Home" },
+    { id: "analisis", icon: "📊", label: "Research" },
+    { id: "thesis", icon: "💡", label: "Thesis" },
+    { id: "wealth", icon: "💰", label: "Wealth" },
+    { id: "riwayat", icon: "📚", label: "History" },
+  ];
+
+  const isBottomNavActive = (id: string) => {
+    if (id === "analisis") return researchTabIds.includes(activeTab);
+    return activeTab === id;
   };
 
-  useEffect(() => {
-    fetchThesisHistory();
-  }, []);
+  // Rotating loading messages per context
+  const analysisLoadingMsg = useRotatingMessages(loading, [
+    "🔍 Menganalisis model bisnis...",
+    "📊 Mengevaluasi risiko...",
+    "💰 Menilai valuasi...",
+  ]);
+  const sentimentLoadingMsg = useRotatingMessages(loadingSentiment, [
+    "📰 Mencari berita terkini...",
+    "🌐 Mengecek sentimen pasar...",
+    "📈 Menyusun ringkasan...",
+  ]);
+  const compareLoadingMsg = useRotatingMessages(loadingCompare, [
+    "⚖️ Membandingkan fundamental...",
+    "📊 Mengevaluasi tiap aset...",
+    "📝 Menyusun perbandingan...",
+  ]);
+  const thesisLoadingMsg = useRotatingMessages(loadingThesis, [
+    "🐂 Menyusun bull case...",
+    "🐻 Menyusun bear case...",
+    "🎯 Merangkum kesimpulan...",
+  ]);
 
-  const handleGenerateThesis = async () => {
-    if (!thesisTicker.trim() || !thesisReasons.trim()) return;
-    setLoadingThesis(true);
-    setThesisResult(null);
-    try {
-      const res = await fetch(`${API_URL}/thesis`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: thesisTicker, reasons: thesisReasons }),
-      });
-      const data = await res.json();
-      setThesisResult(data);
-      fetchThesisHistory();
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoadingThesis(false);
-    }
-  };
+  // Combined history (analysis + thesis) for History tab
+  const combinedHistory = [
+    ...history.map((h) => ({
+      type: "analysis" as const,
+      id: `a-${h.id}`,
+      title: h.query,
+      created_at: h.created_at,
+      raw: h,
+    })),
+    ...thesisHistory.map((t) => ({
+      type: "thesis" as const,
+      id: `t-${t.id}`,
+      title: t.ticker,
+      created_at: t.created_at,
+      raw: t,
+    })),
+  ].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
+  const HomeCard = ({
+    icon,
+    title,
+    desc,
+    onClick,
+  }: {
+    icon: string;
+    title: string;
+    desc: string;
+    onClick: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className="text-left bg-white rounded-xl shadow p-4 md:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all border border-transparent hover:border-blue-200"
+    >
+      <div className="text-2xl mb-2">{icon}</div>
+      <h3 className="font-semibold text-gray-800 text-sm md:text-base mb-1">
+        {title}
+      </h3>
+      <p className="text-xs md:text-sm text-gray-500">{desc}</p>
+    </button>
+  );
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 pb-20 sm:pb-0">
       {/* Header */}
       <div className="bg-white shadow-sm px-4 sm:px-6 md:px-8 py-4 md:py-6 mb-4 md:mb-6">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
-            AI Investment Research Assistant
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Riset aset berbasis AI - saham & crypto - bukan saran investasi
-          </p>
+          <button
+            onClick={() => setActiveTab("home")}
+            className="text-left"
+          >
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+              AI Investment Research Assistant
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              Riset aset berbasis AI - saham & crypto - bukan saran investasi
+            </p>
+          </button>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8">
-        {/* Desktop/Tablet Tabs */}
-        <div className="hidden sm:flex flex-wrap gap-1 bg-white rounded-lg shadow p-1 mb-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 min-w-[100px] py-2 px-2 md:px-3 rounded-md text-xs md:text-sm font-medium transition ${
-                activeTab === tab.id
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Mobile Hamburger Menu */}
-        <div className="sm:hidden mb-6 relative">
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="w-full flex items-center justify-between bg-white rounded-lg shadow px-4 py-3"
-          >
-            <span className="font-medium text-gray-800">{currentTabLabel}</span>
-            <span className="text-xl">{mobileMenuOpen ? "✕" : "☰"}</span>
-          </button>
-          {mobileMenuOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg z-10 overflow-hidden">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-3 text-sm font-medium border-b border-gray-100 last:border-0 ${
-                    activeTab === tab.id
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+        {/* Desktop Grouped Tabs (hidden on Home to avoid redundancy, shown elsewhere for quick switch) */}
+        {activeTab !== "home" && (
+          <div className="hidden sm:flex flex-wrap gap-x-8 gap-y-3 mb-6 border-b border-gray-200 pb-1">
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-gray-400">
+                Research
+              </span>
+              <div className="flex gap-1">
+                {researchTools.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => setActiveTab(tool.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition ${
+                      activeTab === tool.id
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    {tool.title}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-gray-400">
+                Portfolio
+              </span>
+              <div className="flex gap-1">
+                {portfolioTools.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => setActiveTab(tool.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition ${
+                      activeTab === tool.id
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    {tool.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: HOME */}
+        {activeTab === "home" && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-sm font-semibold tracking-wider uppercase text-gray-400 mb-3">
+                Research Tools
+              </h2>
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                {researchTools.map((tool) => (
+                  <HomeCard
+                    key={tool.id}
+                    icon={tool.icon}
+                    title={tool.title}
+                    desc={tool.desc}
+                    onClick={() => setActiveTab(tool.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold tracking-wider uppercase text-gray-400 mb-3">
+                Portfolio Tools
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+                {portfolioTools.map((tool) => (
+                  <HomeCard
+                    key={tool.id}
+                    icon={tool.icon}
+                    title={tool.title}
+                    desc={tool.desc}
+                    onClick={() => setActiveTab(tool.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab: Analisis Aset */}
         {activeTab === "analisis" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-4">
-              Analisis Aset
+              📊 Company Analysis
             </h2>
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <div className="flex flex-col sm:flex-row gap-2 mb-2">
               <input
                 type="text"
                 value={query}
@@ -431,37 +754,71 @@ export default function Home() {
                 onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
               />
               <button
-                onClick={handleAnalyze}
+                onClick={() => handleAnalyze()}
                 disabled={loading}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 whitespace-nowrap"
               >
                 {loading ? "Menganalisis..." : "Analisis"}
               </button>
             </div>
-            {result && (
-              <div className="bg-gray-50 rounded-lg p-4 md:p-6">
-                <h3 className="text-lg font-semibold mb-4 uppercase">
-                  {result.query}
-                </h3>
-                <div className="prose prose-sm max-w-none text-gray-700">
+
+            {!result && !loading && (
+              <div className="flex flex-wrap gap-2 mb-2 mt-3">
+                {["BBCA", "BBRI", "TLKM", "Bitcoin", "Ethereum"].map((ex) => (
+                  <ExampleChip
+                    key={ex}
+                    label={ex}
+                    onClick={() => setQuery(ex)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {loading && <RotatingLoader message={analysisLoadingMsg} />}
+
+            {!loading && result && (
+              <div className="bg-gray-50 rounded-lg p-4 md:p-6 mt-4">
+                <div className="flex items-baseline justify-between flex-wrap gap-1 mb-1">
+                  <h3 className="text-lg font-semibold uppercase">
+                    {result.query}
+                  </h3>
+                  <span className="text-xs text-gray-400">
+                    Terakhir diperbarui:{" "}
+                    {new Date(result.created_at).toLocaleDateString("id-ID")}
+                  </span>
+                </div>
+                {extractSubtitle(result.analysis) && (
+                  <p className="text-sm text-gray-500 mb-4">
+                    {extractSubtitle(result.analysis)}
+                  </p>
+                )}
+                <div className="prose prose-sm max-w-none text-gray-700 mt-3">
                   <ReactMarkdown>{result.analysis}</ReactMarkdown>
                 </div>
               </div>
             )}
-          </div>
+
+            {!loading && !result && (
+              <EmptyState
+                icon="📊"
+                title="Analisis Aset Apapun"
+                hint="Ketik ticker atau nama aset di atas untuk memulai."
+              />
+            )}
+          </Card>
         )}
 
         {/* Tab: News & Sentiment */}
         {activeTab === "sentiment" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-1">
-              News & Sentiment
+              📰 News & Sentiment
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               AI mencari berita terkini dan menganalisis sentimen pasar secara
               real-time.
             </p>
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <div className="flex flex-col sm:flex-row gap-2 mb-2">
               <input
                 type="text"
                 value={sentimentQuery}
@@ -471,14 +828,31 @@ export default function Home() {
                 onKeyDown={(e) => e.key === "Enter" && handleSentiment()}
               />
               <button
-                onClick={handleSentiment}
+                onClick={() => handleSentiment()}
                 disabled={loadingSentiment}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 whitespace-nowrap"
               >
-                {loadingSentiment ? "Menganalisis..." : "Cek Sentimen"}
+                {loadingSentiment ? "Mencari..." : "Cek Sentimen"}
               </button>
             </div>
-            {sentimentResult && (
+
+            {!sentimentResult && !loadingSentiment && (
+              <div className="flex flex-wrap gap-2 mb-2 mt-3">
+                {["BBCA", "Bitcoin", "TLKM"].map((ex) => (
+                  <ExampleChip
+                    key={ex}
+                    label={ex}
+                    onClick={() => setSentimentQuery(ex)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {loadingSentiment && (
+              <RotatingLoader message={sentimentLoadingMsg} />
+            )}
+
+            {!loadingSentiment && sentimentResult && (
               <div className="mt-4">
                 <div className="flex flex-wrap items-center gap-3 mb-4">
                   <span className="text-lg font-bold uppercase">
@@ -495,19 +869,27 @@ export default function Home() {
                 </div>
               </div>
             )}
-          </div>
+
+            {!loadingSentiment && !sentimentResult && (
+              <EmptyState
+                icon="📰"
+                title="Cek Sentimen Pasar"
+                hint="Ketik ticker di atas untuk melihat sentimen dan berita terkini."
+              />
+            )}
+          </Card>
         )}
 
         {/* Tab: Perbandingan */}
         {activeTab === "compare" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-1">
-              Perbandingan Aset
+              ⚖️ Compare Assets
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               Bandingkan beberapa aset sekaligus. Pisahkan ticker dengan koma.
             </p>
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <div className="flex flex-col sm:flex-row gap-2 mb-2">
               <input
                 type="text"
                 value={compareInput}
@@ -517,14 +899,26 @@ export default function Home() {
                 onKeyDown={(e) => e.key === "Enter" && handleCompare()}
               />
               <button
-                onClick={handleCompare}
+                onClick={() => handleCompare()}
                 disabled={loadingCompare}
                 className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 whitespace-nowrap"
               >
                 {loadingCompare ? "Membandingkan..." : "Bandingkan"}
               </button>
             </div>
-            {compareResults.length > 0 && (
+
+            {compareResults.length === 0 && !loadingCompare && (
+              <div className="flex flex-wrap gap-2 mb-2 mt-3">
+                <ExampleChip
+                  label="BBCA, BBRI, BMRI"
+                  onClick={() => setCompareInput("BBCA, BBRI, BMRI")}
+                />
+              </div>
+            )}
+
+            {loadingCompare && <RotatingLoader message={compareLoadingMsg} />}
+
+            {!loadingCompare && compareResults.length > 0 && (
               <div className="space-y-4 mt-4">
                 {compareResults.map((item) => (
                   <div
@@ -541,14 +935,22 @@ export default function Home() {
                 ))}
               </div>
             )}
-          </div>
+
+            {!loadingCompare && compareResults.length === 0 && (
+              <EmptyState
+                icon="⚖️"
+                title="Bandingkan Beberapa Aset"
+                hint="Bandingkan valuasi, kualitas bisnis, dan risiko sekaligus."
+              />
+            )}
+          </Card>
         )}
 
         {/* Tab: Tanya Dokumen */}
         {activeTab === "dokumen" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-1">
-              Tanya Jawab Dokumen
+              📄 Financial Document Q&A
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               Upload laporan keuangan (PDF), lalu tanyakan apa saja - termasuk
@@ -598,25 +1000,38 @@ export default function Home() {
                 {askingDoc ? "Mencari..." : "Tanya"}
               </button>
             </div>
-            {docAnswer && (
+
+            {askingDoc && (
+              <RotatingLoader message="📄 Membaca dokumen dan menyusun jawaban..." />
+            )}
+
+            {!askingDoc && docAnswer && (
               <div className="bg-gray-50 rounded-lg p-4 prose prose-sm max-w-none">
                 <ReactMarkdown>{docAnswer}</ReactMarkdown>
               </div>
             )}
-          </div>
+
+            {!askingDoc && !docAnswer && (
+              <EmptyState
+                icon="📄"
+                title="Tanya Jawab dari Dokumen"
+                hint="Upload PDF laporan keuangan, lalu tanyakan apa saja tentang isinya."
+              />
+            )}
+          </Card>
         )}
 
         {/* Tab: Investment Thesis */}
         {activeTab === "thesis" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-1">
-              Investment Thesis
+              💡 Investment Thesis
             </h2>
             <p className="text-sm text-gray-500 mb-4">
               Susun alasan investasimu jadi kerangka Bull Case, Bear Case, dan
               metrik yang perlu dipantau.
             </p>
-            <div className="space-y-3 mb-4">
+            <div className="space-y-3 mb-2">
               <input
                 type="text"
                 value={thesisTicker}
@@ -640,18 +1055,97 @@ export default function Home() {
               </button>
             </div>
 
-            {thesisResult && (
-              <div className="bg-gray-50 rounded-lg p-4 md:p-6 mb-6">
-                <h3 className="text-lg font-semibold mb-4 uppercase">
-                  {thesisResult.ticker}
-                </h3>
-                <div className="prose prose-sm max-w-none text-gray-700">
-                  <ReactMarkdown>{thesisResult.analysis}</ReactMarkdown>
-                </div>
+            {!thesisResult && !loadingThesis && (
+              <div className="mb-2 mt-3">
+                <ExampleChip
+                  label="BBCA - CASA tinggi, ROE tinggi, manajemen bagus"
+                  onClick={() => {
+                    setThesisTicker("BBCA");
+                    setThesisReasons(
+                      "CASA tinggi, ROE tinggi, manajemen bagus",
+                    );
+                  }}
+                />
               </div>
             )}
 
-            <h3 className="text-md font-semibold mb-3 mt-6">Riwayat Thesis</h3>
+            {loadingThesis && <RotatingLoader message={thesisLoadingMsg} />}
+
+            {!loadingThesis && thesisResult && (
+              <div className="mt-4 mb-6">
+                <h3 className="text-lg font-semibold uppercase mb-4">
+                  {thesisResult.ticker}
+                </h3>
+                {(() => {
+                  const sections = parseThesis(thesisResult.analysis);
+                  if (!sections) {
+                    return (
+                      <div className="bg-gray-50 rounded-lg p-4 prose prose-sm max-w-none">
+                        <ReactMarkdown>{thesisResult.analysis}</ReactMarkdown>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {sections.bull && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-green-800 mb-2">
+                            🐂 Bull Case
+                          </h4>
+                          <div className="prose prose-sm max-w-none text-green-900">
+                            <ReactMarkdown>{sections.bull}</ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                      {sections.bear && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-red-800 mb-2">
+                            🐻 Bear Case
+                          </h4>
+                          <div className="prose prose-sm max-w-none text-red-900">
+                            <ReactMarkdown>{sections.bear}</ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                      {sections.watch && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-yellow-800 mb-2">
+                            👀 What To Watch
+                          </h4>
+                          <div className="prose prose-sm max-w-none text-yellow-900">
+                            <ReactMarkdown>{sections.watch}</ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                      {sections.conclusion && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-blue-800 mb-2">
+                            🎯 Conclusion
+                          </h4>
+                          <div className="prose prose-sm max-w-none text-blue-900">
+                            <ReactMarkdown>
+                              {sections.conclusion}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {!loadingThesis && !thesisResult && (
+              <EmptyState
+                icon="💡"
+                title="Build an Investment Thesis"
+                hint="Tulis ticker dan alasanmu, AI akan bantu susun bull case & bear case."
+              />
+            )}
+
+            <h3 className="text-md font-semibold mb-3 mt-6">
+              Riwayat Thesis
+            </h3>
             {thesisHistory.length === 0 && (
               <p className="text-sm text-gray-400">
                 Belum ada thesis yang dibuat.
@@ -666,25 +1160,54 @@ export default function Home() {
                 >
                   <p className="font-medium uppercase">{item.ticker}</p>
                   <p className="text-sm text-gray-500">
-                    {new Date(item.created_at).toLocaleString("id-ID")}
+                    {relativeTime(item.created_at)}
                   </p>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Tab: Wealth Dashboard */}
         {activeTab === "wealth" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-1">
-              Wealth Dashboard
+              💰 Wealth Dashboard
             </h2>
             <p className="text-sm text-gray-500 mb-6">
               Hitung total kekayaan bersih dan lihat alokasi aset kamu.
-              Tersimpan otomatis di browser ini saja (tidak terhubung ke
-              server). Boleh dibiarkan 0 kalau tidak punya.
+              Tersimpan otomatis di browser ini saja. Boleh dibiarkan 0.
             </p>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4">
+                <p className="text-xs text-gray-500 mb-1">Net Worth</p>
+                <p className="text-sm md:text-base font-bold text-gray-900">
+                  {formatRupiah(wealth.netWorth)}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4">
+                <p className="text-xs text-gray-500 mb-1">Total Assets</p>
+                <p className="text-sm md:text-base font-bold text-gray-900">
+                  {formatRupiah(wealth.totalAssets)}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4">
+                <p className="text-xs text-gray-500 mb-1">Debt</p>
+                <p className="text-sm md:text-base font-bold text-gray-900">
+                  {formatRupiah(wealth.debt)}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 md:p-4">
+                <p className="text-xs text-gray-500 mb-1">Largest Position</p>
+                <p className="text-sm md:text-base font-bold text-gray-900">
+                  {wealth.totalAssets > 0
+                    ? allocationLabels[wealth.largestLabel]
+                    : "-"}
+                </p>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               {wealthFields.map((field) => (
@@ -706,20 +1229,13 @@ export default function Home() {
             </div>
 
             <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-4 md:p-6 text-center">
-                <p className="text-sm text-gray-500 mb-1">Total Net Worth</p>
-                <p className="text-2xl md:text-3xl font-bold text-gray-900">
-                  {formatRupiah(wealth.netWorth)}
-                </p>
-              </div>
-
               {wealth.concentrationWarning && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">
                     ⚠️ Konsentrasi tinggi terdeteksi:{" "}
                     <strong>{wealth.maxAllocation.toFixed(0)}%</strong> dari
-                    total aset ada di satu kategori. Pertimbangkan diversifikasi
-                    untuk mengurangi risiko.
+                    total aset ada di satu kategori. Pertimbangkan
+                    diversifikasi untuk mengurangi risiko.
                   </p>
                 </div>
               )}
@@ -756,45 +1272,78 @@ export default function Home() {
                 </div>
               ) : (
                 <p className="text-sm text-gray-400 text-center py-4">
-                  Isi minimal satu kategori aset di atas untuk melihat alokasi.
+                  Isi minimal satu kategori aset di atas untuk melihat
+                  alokasi.
                 </p>
               )}
             </div>
-          </div>
+          </Card>
         )}
 
-        {/* Tab: Riwayat */}
+        {/* Tab: Riwayat (gabungan analysis + thesis) */}
         {activeTab === "riwayat" && (
-          <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <Card>
             <h2 className="text-lg md:text-xl font-semibold mb-4">
-              Riwayat Analisis
+              📚 History
             </h2>
-            {history.length === 0 && (
+            {combinedHistory.length === 0 && (
               <p className="text-sm text-gray-400">
-                Belum ada riwayat analisis.
+                Belum ada riwayat. Mulai dari Company Analysis atau Investment
+                Thesis.
               </p>
             )}
             <div className="space-y-3">
-              {history.map((item) => (
+              {combinedHistory.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => {
-                    setResult(item);
-                    setActiveTab("analisis");
+                    if (item.type === "analysis") {
+                      setResult(item.raw as AnalysisResult);
+                      setActiveTab("analisis");
+                    } else {
+                      setThesisResult(item.raw as ThesisResult);
+                      setActiveTab("thesis");
+                    }
                   }}
-                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition"
+                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition flex items-center justify-between"
                 >
-                  <p className="font-medium uppercase">{item.query}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(item.created_at).toLocaleString("id-ID")}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">
+                      {item.type === "analysis" ? "📊" : "💡"}
+                    </span>
+                    <div>
+                      <p className="font-medium uppercase">{item.title}</p>
+                      <p className="text-xs text-gray-500">
+                        {item.type === "analysis"
+                          ? "Company Analysis"
+                          : "Investment Thesis"}{" "}
+                        · {relativeTime(item.created_at)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         <div className="h-8" />
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center py-2 px-1 z-20">
+        {bottomNavItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition ${
+              isBottomNavActive(item.id) ? "text-blue-600" : "text-gray-400"
+            }`}
+          >
+            <span className="text-lg">{item.icon}</span>
+            <span className="text-[10px] font-medium">{item.label}</span>
+          </button>
+        ))}
       </div>
     </main>
   );
