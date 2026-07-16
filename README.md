@@ -66,8 +66,11 @@ AI powered research tool for stock and crypto analysis, built as a full stack po
 ## UI Design Decisions
 
 - **Home dashboard** with tool cards (Research vs Portfolio) instead of a flat tab list — reflects that research and portfolio tracking are distinct workflows, not equal-weight menu items
+- **Hero section** on the home screen gives users a clear entry point ("Mulai Riset") instead of an ambiguous grid of equal options
+- Each tool card carries a small badge (AI Generated / Live Data / RAG) to set expectations about how that feature's output is produced
 - **Investment Thesis output** is parsed from markdown into distinct Bull Case / Bear Case / Watch / Conclusion cards rather than shown as raw text, with a safe fallback to plain markdown if parsing fails
 - **Mobile navigation** uses a bottom tab bar (Home / Research / Thesis / Wealth / History) instead of a hamburger menu, closer to a native app pattern
+- Icons use Lucide React instead of emoji for a more professional, consistent visual language
 - Financial figures use tabular formatting for readability; sentiment results use ▲/▼ indicators, a convention borrowed from real trading terminals
 
 ## Getting Started
