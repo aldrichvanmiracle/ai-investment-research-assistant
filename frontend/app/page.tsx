@@ -518,30 +518,35 @@ export default function Home() {
     icon: LucideIcon;
     title: string;
     desc: string;
+    badge?: string;
   }[] = [
     {
       id: "analisis",
       icon: BarChart3,
       title: "Company Analysis",
       desc: "Analisis mendalam saham & crypto",
+      badge: "AI Generated",
     },
     {
       id: "sentiment",
       icon: Newspaper,
       title: "News & Sentiment",
       desc: "Sentimen pasar dan berita terkini",
+      badge: "Live Data",
     },
     {
       id: "compare",
       icon: Scale,
       title: "Compare Assets",
       desc: "Bandingkan beberapa investasi",
+      badge: "AI Generated",
     },
     {
       id: "dokumen",
       icon: FileText,
       title: "Financial Document Q&A",
       desc: "Tanya jawab dari laporan keuangan",
+      badge: "RAG",
     },
   ];
 
@@ -550,12 +555,14 @@ export default function Home() {
     icon: LucideIcon;
     title: string;
     desc: string;
+    badge?: string;
   }[] = [
     {
       id: "thesis",
       icon: Lightbulb,
       title: "Investment Thesis",
       desc: "Susun bull case & bear case",
+      badge: "AI Generated",
     },
     {
       id: "wealth",
@@ -636,18 +643,27 @@ export default function Home() {
     icon: Icon,
     title,
     desc,
+    badge,
     onClick,
   }: {
     icon: LucideIcon;
     title: string;
     desc: string;
+    badge?: string;
     onClick: () => void;
   }) => (
     <button
       onClick={onClick}
       className="text-left bg-white rounded-xl shadow p-4 md:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all border border-transparent hover:border-blue-200"
     >
-      <Icon size={24} className="text-blue-600 mb-2" strokeWidth={1.75} />
+      <div className="flex items-center justify-between mb-2">
+        <Icon size={24} className="text-blue-600" strokeWidth={1.75} />
+        {badge && (
+          <span className="text-[10px] font-medium uppercase tracking-wide text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+            {badge}
+          </span>
+        )}
+      </div>
       <h3 className="font-semibold text-gray-800 text-sm md:text-base mb-1">
         {title}
       </h3>
@@ -724,23 +740,19 @@ export default function Home() {
         {activeTab === "home" && (
           <div className="space-y-8">
             {/* Hero Card */}
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 md:p-10 text-center text-white">
-              <h2 className="text-xl md:text-2xl font-bold mb-2">
-                AI Investment Research Assistant
+            <div className="bg-blue-600 rounded-2xl p-6 md:p-10 text-center text-white">
+              <h2 className="text-xl md:text-2xl font-bold mb-3">
+                Asisten Riset Investasi Berbasis Artificial Intelligence
               </h2>
-              <p className="text-sm md:text-base text-blue-100 max-w-md mx-auto mb-1">
-                Research stocks, crypto, and financial reports with AI-powered
-                analysis.
-              </p>
-              <p className="text-xs md:text-sm text-blue-200 mb-5">
-                {totalToolsCount} research & portfolio tools available
+              <p className="text-sm md:text-base text-blue-100 max-w-md mx-auto mb-5">
+                Dapatkan insight saham, kripto, sentimen pasar, dan laporan
+                keuangan dalam hitungan detik.
               </p>
               <button
                 onClick={() => setActiveTab("analisis")}
-                className="bg-white text-blue-700 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition inline-flex items-center gap-2"
+                className="bg-white text-blue-700 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition"
               >
-                <BarChart3 size={18} />
-                Start Research
+                Mulai Riset
               </button>
             </div>
 
@@ -755,6 +767,7 @@ export default function Home() {
                     icon={tool.icon}
                     title={tool.title}
                     desc={tool.desc}
+                    badge={tool.badge}
                     onClick={() => setActiveTab(tool.id)}
                   />
                 ))}
@@ -764,16 +777,19 @@ export default function Home() {
               <h2 className="text-sm font-semibold tracking-wider uppercase text-gray-400 mb-3">
                 Portfolio Tools
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-                {portfolioTools.map((tool) => (
-                  <HomeCard
-                    key={tool.id}
-                    icon={tool.icon}
-                    title={tool.title}
-                    desc={tool.desc}
-                    onClick={() => setActiveTab(tool.id)}
-                  />
-                ))}
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                {portfolioTools
+                  .filter((tool) => tool.id !== "riwayat")
+                  .map((tool) => (
+                    <HomeCard
+                      key={tool.id}
+                      icon={tool.icon}
+                      title={tool.title}
+                      desc={tool.desc}
+                      badge={tool.badge}
+                      onClick={() => setActiveTab(tool.id)}
+                    />
+                  ))}
               </div>
             </div>
           </div>
