@@ -73,6 +73,22 @@ AI powered research tool for stock and crypto analysis, built as a full stack po
 - Icons use Lucide React instead of emoji for a more professional, consistent visual language
 - Financial figures use tabular formatting for readability; sentiment results use ▲/▼ indicators, a convention borrowed from real trading terminals
 
+## Vision
+
+This project is currently a research and portfolio-tracking tool, but the underlying thesis behind it is broader: most Indonesian retail investors have their assets scattered across separate platforms (Bibit for mutual funds, Stockbit for stocks, Tokocrypto for crypto, physical gold, property) with no single place that helps them **think** about the whole picture.
+
+Existing platforms in this space are transaction-first — they earn from trading fees or AUM, and their tools are built to drive transactions, not necessarily better decisions. There's a real gap for a **decision-intelligence layer** that sits above those platforms rather than competing with them for transaction volume: something closer to "a research copilot for retail investors" than another brokerage app.
+
+The features already built here point in that direction rather than toward becoming a marketplace or transaction platform:
+
+- **Analysis, Sentiment, Compare, RAG** → structured research, not trade execution
+- **Investment Thesis** → documenting _why_ a decision was made, not just what to buy
+- **Wealth Dashboard** → understanding the full picture, not managing one asset class
+
+The most interesting extension of this idea, and one that doesn't exist in most retail investment apps, is closing the loop on Investment Thesis: letting a user write down their reasoning today, and having the system check months later whether that reasoning still holds up against what actually happened. Very few retail tools help investors track whether they were _right for the right reasons_ — most only show whether the price went up.
+
+This section exists to document product thinking, not as a commitment to build all of this. The current scope is intentionally limited to what's useful, testable, and maintainable as a solo project.
+
 ## Getting Started
 
 ### Prerequisites
@@ -153,6 +169,7 @@ Frontend runs at `http://localhost:3000`.
 - Persist Wealth Dashboard data server-side (optional login)
 - Watchlist with periodic price/sentiment refresh
 - Compare prior thesis predictions against actual outcomes over time
+- Automated thesis re-check: periodically re-evaluate saved theses against updated company data and flag if the original reasoning still holds
 
 ## Author
 
